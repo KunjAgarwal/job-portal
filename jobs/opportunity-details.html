@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#ffffff">
+    <title>Opportunity Details | CareerConnect</title>
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+    <header class="navbar">
+        <a class="logo" href="../index.html" aria-label="CareerConnect home"><span class="logo-mark" aria-hidden="true">C</span><span>Career<span>Connect</span></span></a>
+        <nav class="main-nav" aria-label="Main navigation">
+            <a class="nav-dropdown" href="jobs.html">Jobs <span aria-hidden="true">⌄</span></a>
+            <a class="nav-dropdown" href="internships.html">Internships <span aria-hidden="true">⌄</span></a>
+            <a class="nav-dropdown" href="../user/profile.html">Employers</a>
+        </nav>
+        <div class="nav-actions">
+            <form class="nav-search" action="../index.html" role="search">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
+                <input type="search" name="q" placeholder="Search" aria-label="Search opportunities">
+            </form>
+            <a class="button button-outline" href="../user/login.html">Login</a>
+            <a class="button button-primary" href="../user/signup.html">Register</a>
+            <a class="dashboard-link" href="../applications/applications.html" aria-label="My applications"><svg class="dashboard-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"></rect><path d="M9 8h6M9 12h6M9 16h4"></path></svg><span class="dashboard-label">My applications</span></a>
+            <span class="nav-divider" aria-hidden="true"></span>
+            <a class="employer-link" href="../index.html#employer-contact">For Employers <span aria-hidden="true">›</span></a>
+        </div>
+    </header>
+    <main class="opportunity-detail-page">
+        <a class="back-link" href="../index.html#opportunities">← Back to opportunities</a>
+        <div id="opportunityDetails" class="detail-layout" aria-live="polite">
+            <section class="detail-main">
+                <article class="detail-card">
+                    <div class="detail-company-row">
+                        <div id="detailLogo" class="company-logo" aria-hidden="true"></div>
+                        <div><p id="detailCompany" class="opportunity-company"></p><span id="detailType" class="opportunity-tag"></span></div>
+                        <span class="hiring-badge"><span aria-hidden="true">ϟ</span> Actively hiring</span>
+                    </div>
+                    <h1 id="detailTitle"></h1>
+                    <div class="detail-meta" id="detailMeta"></div>
+                    <hr class="card-divider">
+                    <h2>About the opportunity</h2>
+                    <p id="detailDescription" class="detail-description"></p>
+                    <h2>Skills you'll use</h2>
+                    <div id="detailSkills" class="skill-list"></div>
+                </article>
+                <article class="detail-card detail-note">
+                    <span class="value-icon" aria-hidden="true">✓</span>
+                    <div><strong>A quick note</strong><p>This is a demo opportunity. Submit an application to see how CareerConnect keeps your application details organized.</p></div>
+                </article>
+            </section>
+            <aside class="detail-sidebar">
+                <div class="detail-card detail-apply-card">
+                    <p class="section-eyebrow">READY TO TAKE THE NEXT STEP?</p>
+                    <h2>Apply for this opportunity</h2>
+                    <p>Hiring for your team? Post an opportunity for candidates to discover.</p>
+                    <a id="detailApply" class="primary-btn" href="#">Apply now</a>
+                    <a class="profile-link" href="../user/profile.html">Post an opportunity</a>
+                </div>
+            </aside>
+        </div>
+    </main>
+    <footer id="employer-contact">
+        <a class="logo footer-logo" href="../index.html"><span class="logo-mark" aria-hidden="true">C</span><span>Career<span>Connect</span></span></a>
+        <p>Job and Internship Management Portal</p>
+        <a href="mailto:employers@careerconnect.example">Hiring for your team? <strong>For Employers</strong></a>
+        <span>© 2026 CareerConnect. All rights reserved.</span>
+    </footer>
+    <script src="../js/auth-state.js"></script>
+    <script src="../js/demo-data.js?v=2"></script>
+    <script src="opportunity-details.js"></script>
+</body>
+</html>

@@ -1,628 +1,291 @@
 const STORAGE_KEY = "careerConnectApplications";
+const PROFILE_KEY = "careerConnectProfile";
+const STATUS_LABELS = { applied: "Applied", "in-review": "Under review", shortlisted: "Shortlisted", interview: "Interview", selected: "Selected", rejected: "Rejected", withdrawn: "Withdrawn" };
+const PENDING_STATUSES = ["applied", "in-review"];
 
+function escapeHTML(value = "") {
+    return readableText(value).replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+}
 
-// STORAGE HELPERS
+function readableText(value = "") {
+    return String(value).replaceAll("â‚¹", "₹").replaceAll("â€“", "–").replaceAll("Â·", "·");
+}
 
-function getApplications() {
-    try {
-        const data = localStorage.getItem(STORAGE_KEY);
-        return data ? JSON.parse(data) : [];
-    } catch (error) {
-        console.error("Unable to read applications:", error);
-        return [];
-    }
+function formatDate(value) {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "Date unavailable" : date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function readApplications(seed) {
+    const stored = CareerConnectData.read(STORAGE_KEY, null);
+    if (stored !== null) return Array.isArray(stored) ? stored : seed;
+    CareerConnectData.write(STORAGE_KEY, seed);
+    return seed;
 }
 
 function saveApplications(applications) {
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(applications));
+        CareerConnectData.write(STORAGE_KEY, applications);
         return true;
     } catch (error) {
         console.error("Unable to save applications:", error);
-        alert("Unable to save your application. Please check browser storage.");
         return false;
     }
 }
 
-function escapeHTML(value = "") {
-    return String(value).replace(/[&<>"']/g, character => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-    })[character]);
+function showPageError(error) {
+    console.error("Unable to initialize the application page:", error);
+    const main = document.querySelector("main");
+    if (!main) return;
+    const message = document.createElement("p");
+    message.className = "page-error";
+    message.setAttribute("role", "alert");
+    message.textContent = `This page could not be loaded: ${error.message}`;
+    main.prepend(message);
 }
-
-function formatDate(date) {
-    return new Date(date).toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric"
-    });
-}
-
-function getApplicationId() {
-    return new URLSearchParams(window.location.search).get("id");
-}
-
-
-// INITIALIZE PAGE
-
 
 document.addEventListener("DOMContentLoaded", () => {
+    document.querySelector(".nav-toggle")?.addEventListener("click", event => {
+        const button = event.currentTarget;
+        const expanded = button.getAttribute("aria-expanded") === "true";
+        button.setAttribute("aria-expanded", String(!expanded));
+        document.getElementById(button.getAttribute("aria-controls"))?.classList.toggle("is-open", !expanded);
+    });
     const form = document.getElementById("applicationForm");
-    const applicationsContainer = document.querySelector(".applications-container");
-    const detailsPage = document.querySelector(".details-layout");
-
-    if (form) {
-        initializeApplicationForm(form);
-    }
-
-    if (applicationsContainer) {
-        initializeApplicationsDashboard();
-    }
-
-    if (detailsPage) {
-        initializeApplicationDetails();
-    }
+    if (form) initializeApplicationForm(form).catch(showPageError);
+    if (document.querySelector(".applications-container")) initializeApplicationsDashboard().catch(showPageError);
+    if (document.querySelector(".details-layout")) initializeApplicationDetails().catch(showPageError);
 });
 
+async function initializeApplicationsDashboard() {
+    const data = await CareerConnectData.load();
+    const container = document.querySelector(".applications-container");
+    const search = document.getElementById("applicationSearch");
+    const sort = document.getElementById("applicationSort");
+    const tabs = [...document.querySelectorAll(".application-tab")];
+    let activeStatus = "all";
 
-// APPLY PAGE
-
-
-function initializeApplicationForm(form) {
-    const nameInput = document.getElementById("name");
-    const phoneInput = document.getElementById("phone");
-    const emailInput = document.getElementById("email");
-    const resumeInput = document.getElementById("resume");
-    const messageInput = document.getElementById("message");
-
-    // Populate applicant information if previously saved.
-    const profile = JSON.parse(
-        localStorage.getItem("careerConnectProfile") || "{}"
-    );
-
-    if (profile.name && nameInput) nameInput.value = profile.name;
-    if (profile.phone && phoneInput) phoneInput.value = profile.phone;
-    if (profile.email && emailInput) emailInput.value = profile.email;
-
-    // Read the opportunity from the URL, if supplied.
-    const params = new URLSearchParams(window.location.search);
-    const opportunityTitle = params.get("title");
-    const opportunityCompany = params.get("company");
-    const opportunityType = params.get("type");
-    const opportunityLocation = params.get("location");
-
-    const titleDisplay = document.getElementById("jobTitleDisplay");
-
-    if (titleDisplay && opportunityTitle) {
-        titleDisplay.textContent = opportunityTitle;
-    }
-
-    const companyDisplay = document.querySelector(".opportunity-card .company-name");
-
-    if (companyDisplay && opportunityCompany) {
-        companyDisplay.textContent = opportunityCompany;
-    }
-
-    const opportunityDetails = document.querySelectorAll(
-        ".opportunity-details strong"
-    );
-
-    if (opportunityDetails[0] && opportunityType) {
-        opportunityDetails[0].textContent =
-            opportunityType === "internship" ? "Internship" : opportunityType;
-    }
-
-    if (opportunityDetails[1] && opportunityLocation) {
-        opportunityDetails[1].textContent = opportunityLocation;
-    }
-
-    form.addEventListener("submit", event => {
-        event.preventDefault();
-
-        const name = nameInput.value.trim();
-        const phone = phoneInput.value.trim();
-        const email = emailInput.value.trim();
-        const resume = resumeInput.value.trim();
-        const message = messageInput.value.trim();
-
-        // Validation
-        if (name.length < 2) {
-            alert("Please enter your full name.");
-            nameInput.focus();
-            return;
-        }
-
-        if (!/^\+?[0-9\s()-]{10,20}$/.test(phone)) {
-            alert("Please enter a valid phone number.");
-            phoneInput.focus();
-            return;
-        }
-
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            alert("Please enter a valid email address.");
-            emailInput.focus();
-            return;
-        }
-
-        try {
-            const resumeURL = new URL(resume);
-
-            if (!["http:", "https:"].includes(resumeURL.protocol)) {
-                throw new Error("Invalid protocol");
-            }
-        } catch {
-            alert("Please enter a valid resume URL beginning with https://");
-            resumeInput.focus();
-            return;
-        }
-
-        const applications = getApplications();
-
-        // Prevent accidental duplicate applications for the same opportunity.
-        const duplicate = applications.some(application =>
-            application.email.toLowerCase() === email.toLowerCase() &&
-            application.title.toLowerCase() ===
-                (opportunityTitle || titleDisplay?.textContent.trim() ||
-                    "Software Developer").toLowerCase() &&
-            application.company.toLowerCase() ===
-                (opportunityCompany || companyDisplay?.textContent.trim() ||
-                    "ABC Technologies").toLowerCase() &&
-            application.status !== "withdrawn"
-        );
-
-        if (duplicate) {
-            alert("You have already applied for this opportunity using this email.");
-            return;
-        }
-
-        const application = {
-            id: crypto.randomUUID
-                ? crypto.randomUUID()
-                : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-
-            title: opportunityTitle || titleDisplay?.textContent.trim() ||
-                "Software Developer",
-
-            company: opportunityCompany ||
-                companyDisplay?.textContent.trim() || "ABC Technologies",
-
-            type: opportunityType ||
-                (opportunityDetails[0]?.textContent.toLowerCase().includes("intern")
-                    ? "internship"
-                    : "job"),
-
-            location: opportunityLocation ||
-                opportunityDetails[1]?.textContent.trim() || "Not specified",
-
-            experience: opportunityDetails[2]?.textContent.trim() || "Fresher",
-
-            name,
-            phone,
-            email,
-            resume,
-            message,
-
-            status: "applied",
-            appliedOn: new Date().toISOString()
+    function render() {
+        const applications = readApplications(data.applications);
+        const count = status => status === "all" ? applications.length : status === "pending"
+            ? applications.filter(app => PENDING_STATUSES.includes(app.status)).length
+            : applications.filter(app => app.status === status).length;
+        const groups = {
+            total: count("all"),
+            pending: count("pending"),
+            shortlisted: count("shortlisted"),
+            interview: count("interview"),
+            selected: count("selected"),
+            rejected: count("rejected"),
+            withdrawn: count("withdrawn")
         };
-
-        applications.unshift(application);
-
-        if (!saveApplications(applications)) return;
-
-        // Remember details for convenience on the next application.
-        localStorage.setItem("careerConnectProfile", JSON.stringify({
-            name,
-            phone,
-            email
+        Object.entries(groups).forEach(([key, value]) => {
+            const stat = document.querySelector(`[data-stat="${key}"]`);
+            const tabCount = document.querySelector(`[data-tab-count="${key === "total" ? "all" : key}"]`);
+            if (stat) stat.textContent = value;
+            if (tabCount) tabCount.textContent = value;
+        });
+        let visible = applications.filter(app => {
+            const matchesStatus = activeStatus === "all" || (activeStatus === "pending" ? PENDING_STATUSES.includes(app.status) : app.status === activeStatus);
+            const query = search.value.trim().toLowerCase();
+            return matchesStatus && (!query || `${app.title} ${app.company} ${app.location}`.toLowerCase().includes(query));
+        });
+        visible.sort((a, b) => (new Date(a.appliedOn) - new Date(b.appliedOn)) * (sort.value === "oldest" ? 1 : -1));
+        if (!visible.length) {
+            container.innerHTML = `<div class="empty-state"><span class="empty-icon" aria-hidden="true">⌕</span><h3>${applications.length ? "No matching applications" : "Your next opportunity starts here"}</h3><p>${applications.length ? "Try another search or status filter." : "Explore open roles and keep every application organized in one place."}</p><a class="browse-btn" href="../jobs/jobs.html">Browse opportunities</a></div>`;
+            return;
+        }
+        container.innerHTML = visible.map(app => {
+            const initials = app.company.split(/\s+/).map(word => word[0] || "").join("").slice(0, 3).toUpperCase();
+            const status = STATUS_LABELS[app.status] || "Applied";
+            return `<article class="application-card"><div class="application-card-head"><div class="company-logo" aria-hidden="true">${escapeHTML(initials)}</div><span class="application-status ${escapeHTML(app.status)}">${escapeHTML(status)}</span></div><span class="application-type">${app.type === "internship" ? "Internship" : "Full-time job"}</span><h3>${escapeHTML(app.title)}</h3><p class="company-name">${escapeHTML(app.company)}</p><div class="application-info"><span><b aria-hidden="true">⌖</b>${escapeHTML(app.location || "Location not specified")}</span><span><b aria-hidden="true">◷</b>Applied ${escapeHTML(formatDate(app.appliedOn))}</span></div><div class="card-footer"><a href="application_details.html?id=${encodeURIComponent(app.id)}">View details <span aria-hidden="true">→</span></a>${app.status !== "withdrawn" && !["selected", "rejected"].includes(app.status) ? `<button class="card-withdraw" type="button" data-withdraw="${escapeHTML(app.id)}">Withdraw</button>` : ""}</div></article>`;
+        }).join("");
+        container.querySelectorAll("[data-withdraw]").forEach(button => button.addEventListener("click", () => {
+            if (!confirm("Are you sure you want to withdraw this application? This cannot be undone.")) return;
+            const applicationId = button.dataset.withdraw;
+            const updated = readApplications(data.applications).map(app => app.id === applicationId ? { ...app, status: "withdrawn", withdrawnOn: new Date().toISOString() } : app);
+            if (saveApplications(updated)) render();
+            else alert("Unable to withdraw this application. Please check browser storage and try again.");
         }));
+    }
+    search.addEventListener("input", render);
+    sort.addEventListener("change", render);
+    tabs.forEach(tab => tab.addEventListener("click", () => {
+        activeStatus = tab.dataset.status;
+        tabs.forEach(item => {
+            const selected = item === tab;
+            item.classList.toggle("is-active", selected);
+            item.setAttribute("aria-pressed", String(selected));
+        });
+        render();
+    }));
+    render();
+}
 
-        alert("Application submitted successfully!");
+async function initializeApplicationForm(form) {
+    const data = await CareerConnectData.load();
+    const params = new URLSearchParams(location.search);
+    const selectedOpportunity = params.has("opportunity")
+        ? data.opportunities.find(item => item.id === params.get("opportunity"))
+        : data.opportunities[0];
+    const profile = CareerConnectData.read(PROFILE_KEY, data.user);
+    if (localStorage.getItem(PROFILE_KEY) === null) CareerConnectData.write(PROFILE_KEY, profile);
+    const field = id => document.getElementById(id);
+    const fields = { name: field("name"), phone: field("phone"), email: field("email"), resume: field("resume"), message: field("message") };
+    fields.name.value = profile.name || "";
+    fields.phone.value = profile.phone || "";
+    fields.email.value = profile.email || "";
+    fields.resume.value = profile.resume || "";
+    if (!selectedOpportunity) throw new Error("This opportunity could not be found. Please return to the jobs page and choose an active listing.");
 
-        window.location.href =
-            `applications.html?id=${encodeURIComponent(application.id)}`;
+    field("jobTitleDisplay").textContent = selectedOpportunity.title;
+    document.querySelector(".opportunity-card .company-name").textContent = selectedOpportunity.company;
+    document.querySelector(".large-logo").textContent = selectedOpportunity.companyInitials || selectedOpportunity.company.slice(0, 2).toUpperCase();
+    const details = document.querySelectorAll(".opportunity-details strong");
+    [selectedOpportunity.employmentType, selectedOpportunity.location, selectedOpportunity.experience].forEach((value, index) => details[index].textContent = readableText(value || "Not specified"));
+    field("opportunitySalary").textContent = readableText(selectedOpportunity.salary || "Not specified");
+
+    const resumeFile = field("resumeFile");
+    resumeFile.addEventListener("change", () => {
+        const file = resumeFile.files[0];
+        field("resumePreview").textContent = file ? `${file.name} · ${(file.size / 1024).toFixed(0)} KB` : "No file selected.";
+        clearError("resume");
+    });
+    form.querySelectorAll("input, textarea").forEach(input => input.addEventListener("input", () => clearError(input.id)));
+    form.addEventListener("submit", async event => {
+        event.preventDefault();
+        field("formFeedback").textContent = "";
+        const name = fields.name.value.trim();
+        const phone = fields.phone.value.trim();
+        const email = fields.email.value.trim();
+        const resumeUrl = fields.resume.value.trim();
+        const file = resumeFile.files[0];
+        const errors = {};
+        if (name.length < 2) errors.name = "Enter your full name (at least 2 characters).";
+        if (!/^\+?[0-9\s()-]{10,20}$/.test(phone)) errors.phone = "Enter a valid phone number.";
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Enter a valid email address.";
+        if (resumeUrl) {
+            try { if (!["http:", "https:"].includes(new URL(resumeUrl).protocol)) throw new Error(); }
+            catch { errors.resume = "Use a valid link starting with https://, or upload a PDF."; }
+        }
+        if (!resumeUrl && !file) errors.resume = "Add a resume link or upload a PDF to continue.";
+        if (file && (file.type !== "application/pdf" || file.size > 2 * 1024 * 1024)) errors.resume = "Choose a PDF file smaller than 2 MB.";
+        Object.entries(errors).forEach(([id, message]) => showError(id, message));
+        const firstInvalid = Object.keys(errors)[0];
+        if (firstInvalid) { field(firstInvalid === "resume" && !resumeUrl ? "resumeFile" : firstInvalid).focus(); return; }
+
+        let resume = resumeUrl;
+        if (file) {
+            try { resume = await readFileAsDataURL(file); }
+            catch { showError("resume", "We couldn’t read that file. Please try again."); return; }
+        }
+        const applications = readApplications(data.applications);
+        const duplicate = applications.some(app => app.status !== "withdrawn" && app.opportunityId === selectedOpportunity.id);
+        if (duplicate) { field("formFeedback").textContent = "You have already applied for this opportunity."; return; }
+        const application = {
+            id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            opportunityId: selectedOpportunity.id, title: selectedOpportunity.title, company: selectedOpportunity.company,
+            type: selectedOpportunity.type, location: selectedOpportunity.location, experience: selectedOpportunity.experience,
+            salary: selectedOpportunity.salary, description: selectedOpportunity.description, requiredSkills: selectedOpportunity.skills,
+            name, phone, email, resume, resumeName: file?.name || "", education: field("education").value.trim(),
+            college: field("college").value.trim(), skills: field("skills").value.split(",").map(skill => skill.trim()).filter(Boolean),
+            message: fields.message.value.trim(), availability: field("availability").value.trim(),
+            additionalInfo: field("workAuthorization").value.trim(), status: "applied", appliedOn: new Date().toISOString()
+        };
+        applications.unshift(application);
+        if (!saveApplications(applications)) { field("formFeedback").textContent = "Unable to save this application. Check available browser storage and try again."; return; }
+        try { CareerConnectData.write(PROFILE_KEY, { ...profile, name, phone, email, resume: resumeUrl || profile.resume }); }
+        catch (error) { console.warn("Application saved; profile details could not be updated.", error); }
+        location.href = `application_details.html?id=${encodeURIComponent(application.id)}`;
     });
 
-    // Cancel button returns to the applications dashboard.
-    const cancelButton = form.querySelector(".cancel-btn");
-
-    if (cancelButton) {
-        cancelButton.addEventListener("click", event => {
-            event.preventDefault();
-            window.location.href = "applications.html";
-        });
+    function showError(id, message) {
+        const error = document.querySelector(`[data-error="${id}"]`);
+        if (error) error.textContent = message;
+        field(id)?.setAttribute("aria-invalid", "true");
+    }
+    function clearError(id) {
+        const error = document.querySelector(`[data-error="${id}"]`);
+        if (error) error.textContent = "";
+        field(id)?.removeAttribute("aria-invalid");
     }
 }
 
-
-// APPLICATIONS DASHBOARD
-
-
-function initializeApplicationsDashboard() {
-    const container = document.querySelector(".applications-container");
-    const filter = document.getElementById("applicationFilter");
-
-    // Optional demo records to retain the examples from your HTML.
-    // They are added only when this application store is first initialized.
-    let applications = getApplications();
-
-    if (localStorage.getItem(STORAGE_KEY) === null) {
-        applications = [
-            {
-                id: "demo-1",
-                title: "Software Developer",
-                company: "ABC Technologies",
-                type: "job",
-                location: "Delhi",
-                experience: "Fresher",
-                name: "Kunj Agarwal",
-                email: "kunj@example.com",
-                phone: "9876543210",
-                resume: "",
-                message: "Interested in the Software Developer position.",
-                status: "applied",
-                appliedOn: "2026-09-16T10:00:00.000Z"
-            },
-            {
-                id: "demo-2",
-                title: "Frontend Developer Intern",
-                company: "XYZ Solutions",
-                type: "internship",
-                location: "Noida",
-                experience: "Fresher",
-                name: "Kunj Agarwal",
-                email: "kunj@example.com",
-                phone: "9876543210",
-                resume: "",
-                message: "Interested in the frontend internship.",
-                status: "shortlisted",
-                appliedOn: "2026-09-14T10:00:00.000Z"
-            }
-        ];
-
-        saveApplications(applications);
-    }
-
-    // Replace the hardcoded HTML cards with stored application data.
-    renderApplications();
-
-    if (filter) {
-        filter.addEventListener("change", renderApplications);
-    }
-
-    function renderApplications() {
-        const allApplications = getApplications();
-        const selectedFilter = filter ? filter.value : "all";
-
-        const filteredApplications = allApplications.filter(application => {
-            if (selectedFilter === "all") return true;
-
-            if (selectedFilter === "job" || selectedFilter === "internship") {
-                return application.type === selectedFilter;
-            }
-
-            return application.status === selectedFilter;
-        });
-
-        updateStatistics(allApplications);
-
-        if (filteredApplications.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <h3>No applications found</h3>
-                    <p>Try a different filter or browse new opportunities.</p>
-                </div>
-            `;
-            return;
-        }
-
-        container.innerHTML = filteredApplications.map(application => {
-            const statusLabel = getStatusLabel(application.status);
-            const logo = escapeHTML(
-                application.company.split(/\s+/)
-                    .map(word => word[0] || "")
-                    .join("")
-                    .slice(0, 3)
-                    .toUpperCase()
-            );
-
-            return `
-                <div class="application-card">
-                    <div class="card-top">
-                        <div class="company-logo">${logo}</div>
-                        <span class="application-status ${escapeHTML(application.status)}">
-                            ${escapeHTML(statusLabel)}
-                        </span>
-                    </div>
-
-                    <div class="application-content">
-                        <span class="application-type">
-                            ${escapeHTML(
-                                application.type === "internship"
-                                    ? "Internship"
-                                    : "Full Time Job"
-                            )}
-                        </span>
-
-                        <h3>${escapeHTML(application.title)}</h3>
-                        <p class="company-name">${escapeHTML(application.company)}</p>
-
-                        <div class="application-info">
-                            <span>${escapeHTML(application.location)}</span>
-                            <span>${formatDate(application.appliedOn)}</span>
-                        </div>
-                    </div>
-
-                    <div class="card-footer">
-                        <a href="application-details.html?id=${encodeURIComponent(application.id)}">
-                            View Application
-                        </a>
-                    </div>
-                </div>
-            `;
-        }).join("");
-    }
-
-    function updateStatistics(applications) {
-        const statCards = document.querySelectorAll(".stat-card");
-
-        const stats = [
-            applications.length,
-            applications.filter(app =>
-                ["applied", "in-review"].includes(app.status)
-            ).length,
-            applications.filter(app => app.status === "shortlisted").length,
-            applications.filter(app => app.status === "withdrawn").length
-        ];
-
-        statCards.forEach((card, index) => {
-            const heading = card.querySelector("h2");
-
-            if (heading && stats[index] !== undefined) {
-                heading.textContent = stats[index];
-            }
-        });
-    }
+function readFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+    });
 }
 
-
-// APPLICATION DETAILS
-
-function initializeApplicationDetails() {
-    const applications = getApplications();
-    const applicationId = getApplicationId();
-
-    let application = applications.find(app => app.id === applicationId);
-
-    // For older links without an ID, show the first available record.
-    if (!application && !applicationId) {
-        application = applications[0];
-    }
-
+async function initializeApplicationDetails() {
+    const data = await CareerConnectData.load();
+    const applications = readApplications(data.applications);
+    const id = new URLSearchParams(location.search).get("id");
+    const application = applications.find(item => item.id === id) || (!id ? applications[0] : null);
     if (!application) {
-        const main = document.querySelector("main");
-
-        main.innerHTML = `
-            <section class="details-card">
-                <h2>Application not found</h2>
-                <p>This application may have been deleted or the link is invalid.</p>
-                <a href="applications.html">Back to My Applications</a>
-            </section>
-        `;
-
+        document.querySelector(".details-layout").innerHTML = `<div class="empty-state"><h2>Application not found</h2><p>This application may have been removed or the link may be invalid.</p><a class="browse-btn" href="applications.html">Back to my applications</a></div>`;
         return;
     }
-
-    const main = document.querySelector("main");
-
-    // Update existing page content using stored data.
-    const pageTitle = document.querySelector(".details-page-header h1");
-    const company = document.querySelector(".details-company");
-    const statusBadge = document.querySelector(".details-page-header .application-status");
-
-    if (pageTitle) pageTitle.textContent = application.title;
-
-    if (company) {
-        company.textContent = `${application.company} · ${application.location}`;
-    }
-
-    if (statusBadge) {
-        statusBadge.className = `application-status ${application.status}`;
-        statusBadge.textContent = getStatusLabel(application.status);
-    }
-
-    // Job information
-    const jobCard = document.querySelector(".details-main .details-card:nth-child(1)");
-    const jobValues = jobCard?.querySelectorAll(".info-item strong");
-
-    if (jobValues?.length >= 4) {
-        jobValues[0].textContent = application.title;
-        jobValues[1].textContent = application.company;
-        jobValues[2].textContent = application.location;
-        jobValues[3].textContent =
-            application.type === "internship" ? "Internship" : "Full Time";
-    }
-
-    // Applicant information
-    const applicantCard = document.querySelector(
-        ".details-main .details-card:nth-child(2)"
-    );
-
-    const applicantValues = applicantCard?.querySelectorAll(".info-item strong");
-
-    if (applicantValues?.length >= 3) {
-        applicantValues[0].textContent = application.name;
-        applicantValues[1].textContent = application.email;
-        applicantValues[2].textContent = application.phone;
-    }
-
-    const resumeLink = applicantCard?.querySelector(".resume-link");
-
-    if (resumeLink) {
-        if (application.resume) {
-            resumeLink.href = application.resume;
-            resumeLink.target = "_blank";
-            resumeLink.rel = "noopener noreferrer";
-        } else {
-            resumeLink.removeAttribute("href");
-            resumeLink.textContent = "No resume provided";
-        }
-    }
-
-    const coverMessage = document.querySelector(".cover-message");
-
-    if (coverMessage) {
-        coverMessage.textContent = application.message ||
-            "No cover message was provided.";
-    }
-
-    // Update status panel
-    const statusCard = document.querySelector(".status-card");
-
-    if (statusCard) {
-        const statusTitle = statusCard.querySelector(".status-display strong");
-        const statusDescription = statusCard.querySelector(".status-display p");
-        const appliedDate = statusCard.querySelector(".status-date strong");
-
-        if (statusTitle) {
-            statusTitle.textContent = getStatusLabel(application.status);
-        }
-
-        if (statusDescription) {
-            statusDescription.textContent = getStatusDescription(application.status);
-        }
-
-        if (appliedDate) {
-            appliedDate.textContent = formatDate(application.appliedOn);
-        }
-    }
-
-    updateTimeline(application);
-
-    // Withdrawal
+    const opportunity = data.opportunities.find(item => item.id === application.opportunityId) || {};
+    const setText = (selector, value, fallback = "Not provided") => { const node = document.querySelector(selector); if (node) node.textContent = readableText(value || fallback); };
+    document.title = `${application.title} application | CareerConnect`;
+    setText(".details-title h1", application.title);
+    setText(".details-company", `${application.company} · ${application.location || "Location not specified"}`);
+    setText(".details-company-logo", opportunity.companyInitials || application.company.split(/\s+/).map(word => word[0]).join("").slice(0, 3).toUpperCase());
+    const badge = document.querySelector(".details-page-header .application-status");
+    badge.className = `application-status ${escapeHTML(application.status)}`;
+    badge.textContent = STATUS_LABELS[application.status] || "Applied";
+    const jobValues = document.querySelectorAll(".details-main .details-card:first-child .info-item strong");
+    [application.title, application.company, application.location, application.type === "internship" ? "Internship" : "Full-time", application.salary || opportunity.salary, formatDate(application.appliedOn)].forEach((value, index) => jobValues[index].textContent = readableText(value || "Not specified"));
+    setText("#detailDescription", application.description || opportunity.description, "Description not available.");
+    const requiredSkills = application.requiredSkills || opportunity.skills || [];
+    document.querySelector("#detailSkills").innerHTML = requiredSkills.length ? requiredSkills.map(skill => `<span>${escapeHTML(skill)}</span>`).join("") : "<span>Not specified</span>";
+    const applicantValues = document.querySelectorAll(".details-main .details-card:nth-child(2) .info-item strong");
+    [application.name, application.email, application.phone].forEach((value, index) => applicantValues[index].textContent = value || "Not provided");
+    setText("#detailEducation", application.education);
+    setText("#detailCollege", application.college);
+    setText("#detailApplicantSkills", Array.isArray(application.skills) ? application.skills.join(", ") : application.skills);
+    setText("#detailAvailability", application.availability);
+    setText("#detailAdditionalInfo", application.additionalInfo);
+    const resumeLink = document.querySelector(".resume-link");
+    if (application.resume) {
+        resumeLink.href = application.resume;
+        resumeLink.target = "_blank";
+        resumeLink.rel = "noopener noreferrer";
+        resumeLink.textContent = application.resumeName ? `View ${application.resumeName}` : "View resume";
+        if (application.resume.startsWith("data:application/pdf")) resumeLink.download = application.resumeName || "resume.pdf";
+    } else { resumeLink.removeAttribute("href"); resumeLink.textContent = "No resume provided"; }
+    setText(".cover-message", application.message);
+    const status = STATUS_LABELS[application.status] || "Applied";
+    setText(".status-display strong", status);
+    setText(".status-display p", statusDescription(application.status));
+    setText(".status-date strong", formatDate(application.appliedOn));
+    renderTimeline(application);
     const withdrawButton = document.querySelector(".withdraw-card button");
-
-    if (withdrawButton) {
-        if (application.status === "withdrawn") {
-            withdrawButton.disabled = true;
-            withdrawButton.textContent = "Application Withdrawn";
-        }
-
-        withdrawButton.addEventListener("click", () => {
-            if (application.status === "withdrawn") return;
-
-            const confirmed = confirm(
-                "Are you sure you want to withdraw this application?"
-            );
-
-            if (!confirmed) return;
-
-            const updatedApplications = getApplications().map(app =>
-                app.id === application.id
-                    ? {
-                        ...app,
-                        status: "withdrawn",
-                        withdrawnOn: new Date().toISOString()
-                    }
-                    : app
-            );
-
-            if (!saveApplications(updatedApplications)) return;
-
-            alert("Your application has been withdrawn.");
-
-            window.location.reload();
-        });
-    }
+    if (application.status === "withdrawn") { withdrawButton.disabled = true; withdrawButton.textContent = "Application withdrawn"; }
+    else withdrawButton.addEventListener("click", () => {
+        if (!confirm("Are you sure you want to withdraw this application? This cannot be undone.")) return;
+        const updated = readApplications(data.applications).map(item => item.id === application.id ? { ...item, status: "withdrawn", withdrawnOn: new Date().toISOString() } : item);
+        if (saveApplications(updated)) location.reload();
+        else alert("Unable to withdraw this application. Please check browser storage and try again.");
+    });
 }
 
-
-// STATUS AND TIMELINE HELPERS
-
-
-function getStatusLabel(status) {
-    const labels = {
-        "applied": "Applied",
-        "in-review": "In Review",
-        "shortlisted": "Shortlisted",
-        "rejected": "Rejected",
-        "withdrawn": "Withdrawn",
-        "selected": "Selected"
-    };
-
-    return labels[status] || "Applied";
+function statusDescription(status) {
+    return ({ applied: "Your application has been submitted to the employer.", "in-review": "The employer is reviewing your application.", shortlisted: "You have been shortlisted for the next step.", interview: "You have progressed to the interview stage.", selected: "Congratulations, you have been selected.", rejected: "The employer has closed this application.", withdrawn: "You withdrew this application." })[status] || "Your application has been submitted to the employer.";
 }
 
-function getStatusDescription(status) {
-    const descriptions = {
-        "applied": "Your application has been submitted.",
-        "in-review": "Your application is being reviewed.",
-        "shortlisted": "You have been shortlisted for this opportunity.",
-        "rejected": "The employer has rejected this application.",
-        "withdrawn": "You have withdrawn this application.",
-        "selected": "You have been selected for this opportunity."
-    };
-
-    return descriptions[status] || descriptions.applied;
-}
-
-function updateTimeline(application) {
-    const timeline = document.querySelector(".timeline");
-
-    if (!timeline) return;
-
-    const steps = [
-        {
-            title: "Application Submitted",
-            description: formatDate(application.appliedOn),
-            active: true
-        },
-        {
-            title: "Under Review",
-            description: application.status === "in-review" ||
-                application.status === "shortlisted" ||
-                application.status === "selected" ||
-                application.status === "rejected"
-                    ? "Application reviewed"
-                    : "Waiting for employer response",
-            active: [
-                "in-review",
-                "shortlisted",
-                "selected",
-                "rejected"
-            ].includes(application.status)
-        },
-        {
-            title: "Final Decision",
-            description: application.status === "shortlisted"
-                ? "Shortlisted"
-                : application.status === "selected"
-                    ? "Selected"
-                    : application.status === "rejected"
-                        ? "Not selected"
-                        : application.status === "withdrawn"
-                            ? "Application withdrawn"
-                            : "Not available yet",
-            active: [
-                "shortlisted",
-                "selected",
-                "rejected",
-                "withdrawn"
-            ].includes(application.status)
-        }
-    ];
-
-    timeline.innerHTML = steps.map(step => `
-        <div class="timeline-item ${step.active ? "active" : ""}">
-            <span class="timeline-dot"></span>
-            <div>
-                <strong>${step.title}</strong>
-                <p>${escapeHTML(step.description)}</p>
-            </div>
-        </div>
-    `).join("");
+function renderTimeline(application) {
+    const state = application.status;
+    const current = ({ applied: 0, "in-review": 1, shortlisted: 2, interview: 3, selected: 4, rejected: 4, withdrawn: 0 })[state] ?? 0;
+    const names = ["Applied", "Under review", "Shortlisted", "Interview", state === "rejected" ? "Not selected" : "Selected"];
+    const descriptions = [formatDate(application.appliedOn), "Employer review", "Next stage", "Interview stage", state === "rejected" ? "Application closed" : "Final outcome"];
+    document.querySelector(".timeline").innerHTML = names.map((name, index) => {
+        const complete = index < current || (index === 4 && ["selected", "rejected"].includes(state));
+        const active = index === current || (index === 4 && ["selected", "rejected"].includes(state));
+        return `<div class="timeline-item ${complete ? "complete" : ""} ${active ? "active" : ""}"><span class="timeline-dot" aria-hidden="true">${complete ? "✓" : index + 1}</span><div><strong>${escapeHTML(name)}</strong><p>${escapeHTML(descriptions[index])}</p></div></div>`;
+    }).join("");
 }

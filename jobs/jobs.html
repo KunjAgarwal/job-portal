@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#ffffff">
+    <title>Fresher Jobs | CareerConnect</title>
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body data-opportunity-type="job" data-home-url="../index.html">
+    <header class="navbar">
+        <a class="logo" href="../index.html" aria-label="CareerConnect home"><span class="logo-mark" aria-hidden="true">C</span><span>Career<span>Connect</span></span></a>
+        <nav class="main-nav" aria-label="Main navigation">
+            <a class="nav-dropdown is-current" href="jobs.html" aria-current="page">Jobs <span aria-hidden="true">⌄</span></a>
+            <a class="nav-dropdown" href="internships.html">Internships <span aria-hidden="true">⌄</span></a>
+            <a class="nav-dropdown" href="../user/profile.html">Employers</a>
+        </nav>
+        <div class="nav-actions">
+            <form class="nav-search" action="../index.html" role="search">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
+                <input type="search" name="q" placeholder="Search" aria-label="Search opportunities">
+            </form>
+            <a class="button button-outline" href="../user/login.html">Login</a>
+            <a class="button button-primary" href="../user/signup.html">Register</a>
+            <a class="dashboard-link" href="../applications/applications.html" aria-label="My applications"><svg class="dashboard-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"></rect><path d="M9 8h6M9 12h6M9 16h4"></path></svg><span class="dashboard-label">My applications</span></a>
+            <span class="nav-divider" aria-hidden="true"></span>
+            <a class="employer-link" href="../index.html#employer-contact">For Employers <span aria-hidden="true">›</span></a>
+        </div>
+    </header>
+    <main class="board-section listing-page">
+        <div class="board-heading">
+            <div>
+                <p class="section-eyebrow">FRESHER-FRIENDLY ROLES</p>
+                <h1>Start your career with the right job</h1>
+                <p>Explore entry-level opportunities from teams ready to help you grow.</p>
+            </div>
+            <div class="board-tabs" aria-label="Opportunity type">
+                <a class="board-tab" href="../index.html">All opportunities</a>
+                <a class="board-tab is-active" href="jobs.html" aria-current="page">Fresher jobs</a>
+                <a class="board-tab" href="internships.html">Internships</a>
+            </div>
+        </div>
+        <div class="board-controls">
+            <div class="category-pills" role="group" aria-label="Filter by category">
+                <button class="category-pill" type="button" data-category="Big brands" aria-pressed="false"><span aria-hidden="true">✦</span> Big brands</button>
+                <button class="category-pill" type="button" data-category="Work from home" aria-pressed="false"><span aria-hidden="true">⌂</span> Work from home</button>
+                <button class="category-pill" type="button" data-category="Part-time" aria-pressed="false"><span aria-hidden="true">◷</span> Part-time</button>
+                <button class="category-pill" type="button" data-category="MBA" aria-pressed="false"><span aria-hidden="true">▤</span> MBA</button>
+                <button class="category-pill" type="button" data-category="Engineering" aria-pressed="false"><span aria-hidden="true">⌘</span> Engineering</button>
+                <button class="category-pill" type="button" data-category="Design" aria-pressed="false"><span aria-hidden="true">✎</span> Design</button>
+                <button class="category-pill" type="button" data-category="Data Science" aria-pressed="false"><span aria-hidden="true">⌁</span> Data Science</button>
+                <button class="category-pill" type="button" data-category="Media" aria-pressed="false"><span aria-hidden="true">▣</span> Media</button>
+            </div>
+            <div class="listing-tools">
+                <label class="sr-only" for="opportunitySearch">Search opportunities</label>
+                <div class="inline-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg><input id="opportunitySearch" type="search" placeholder="Search roles or companies"></div>
+                <button id="filterToggle" class="filter-toggle" type="button" aria-expanded="false" aria-controls="advancedFilters" aria-label="Show filters"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 12h10m-7 5h4"></path><circle cx="8" cy="7" r="1.5"></circle><circle cx="15" cy="12" r="1.5"></circle><circle cx="12" cy="17" r="1.5"></circle></svg></button>
+            </div>
+        </div>
+        <div id="advancedFilters" class="advanced-filters" hidden>
+            <label for="locationFilter">Location<select id="locationFilter"><option value="">All locations</option></select></label>
+            <label for="typeFilter">Opportunity type<select id="typeFilter"><option value="">All types</option><option value="job">Fresher jobs</option><option value="internship">Internships</option></select></label>
+            <button id="clearFilters" class="clear-filters" type="button">Clear filters</button>
+        </div>
+        <div class="results-heading"><h2>Fresher jobs</h2><p id="listingCount" class="listing-count" aria-live="polite"></p></div>
+        <section id="opportunityList" class="opportunity-list" aria-live="polite"></section>
+        <div class="board-bottom">
+            <div class="pagination" aria-label="Opportunity pages">
+                <button id="previousPage" type="button" aria-label="Previous page" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg></button>
+                <div class="progress-track" role="progressbar" aria-label="Listing page progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><span id="pageProgress"></span></div>
+                <span id="pageLabel" class="page-label">1 / 1</span>
+                <button id="nextPage" type="button" aria-label="Next page" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button>
+            </div>
+            <a class="view-all-link" href="../index.html">Browse all opportunities <span aria-hidden="true">→</span></a>
+        </div>
+    </main>
+    <footer id="employer-contact">
+        <a class="logo footer-logo" href="../index.html"><span class="logo-mark" aria-hidden="true">C</span><span>Career<span>Connect</span></span></a>
+        <p>Job and Internship Management Portal</p>
+        <a href="mailto:employers@careerconnect.example">Hiring for your team? <strong>For Employers</strong></a>
+        <span>© 2026 CareerConnect. All rights reserved.</span>
+    </footer>
+    <script src="../js/auth-state.js"></script>
+    <script src="../js/demo-data.js?v=2"></script>
+    <script src="opportunities.js?v=2"></script>
+</body>
+</html>
